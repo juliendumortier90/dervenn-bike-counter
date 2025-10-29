@@ -1,12 +1,10 @@
 // === Configuration ===
 const int sensorPin = A0;
-const int detectionThreshold = 104;
-const unsigned long antiDoubleDelay = 100;  // 0.1 s ignore time for second wheel
-const unsigned long minDelayBetweenBikes = 2000;  // 0.5 s minimum between bikes
+const int detectionThreshold = 102;
+const unsigned long minDelayBetweenBikes = 600;  // ms à ignorer après une détection
 
 // === Variables ===
-bool wheelDetected = false;
-unsigned long lastDetection = 0;
+unsigned long lastDetectionTime = 0;
 int bikeCount = 0;
 
 void setup() {
@@ -15,38 +13,20 @@ void setup() {
 }
 
 void loop() {
+  unsigned long now = millis();
   int sensorValue = analogRead(sensorPin);
   float voltage = sensorValue * (5.0 / 1023.0);
-  unsigned long now = millis();
 
-  if (sensorValue > detectionThreshold && !wheelDetected) {
-    wheelDetected = true;
-    lastDetection = now;
+  // Si la valeur dépasse le seuil et qu’on a attendu assez longtemps depuis la dernière détection
+  if (sensorValue > detectionThreshold && (now - lastDetectionTime > minDelayBetweenBikes)) {
+    bikeCount++;
+    lastDetectionTime = now;
+
+    Serial.print("Raw: ");
+    Serial.print(sensorValue);
+    Serial.print(" | Voltage: ");
+    Serial.print(voltage);
+    Serial.print(" V | Count: ");
+    Serial.println(bikeCount);
   }
-
-  if (sensorValue < detectionThreshold && wheelDetected) {
-    wheelDetected = false;
-  }
-
-  if (wheelDetected) {
-    unsigned long timeSinceLast = now - lastDetection;
-
-    if (timeSinceLast > antiDoubleDelay) {
-      bikeCount++;
-      printValue(sensorValue, voltage, bikeCount);
-      wheelDetected = false;
-      delay(minDelayBetweenBikes);
-    }
-  }
-
-  delay(5);
-}
-
-void printValue(int sensorValue, float voltage, int count) {
-  Serial.print("Raw value: ");
-  Serial.print(sensorValue);
-  Serial.print(" | Voltage: ");
-  Serial.print(voltage);
-  Serial.print(" V | Bike count: ");
-  Serial.println(count);
 }
