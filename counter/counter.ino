@@ -9,9 +9,8 @@
 #define PIN_M1 5
 #define PIN_AUX 6
 
-// === Broches bouton et LED ===
+// === Bouton ===
 #define PIN_SAVE_BUTTON 7
-#define PIN_LED 13
 
 // === Capteur ===
 const int SENSOR_PIN = A0;
@@ -32,11 +31,6 @@ bool lastButtonState = HIGH;
 unsigned long buttonPressStart = 0;
 bool buttonHeld = false;
 
-// === Gestion LED non bloquante ===
-bool ledOn = false;
-unsigned long ledStartTime = 0;
-unsigned long ledDuration = 0;
-
 // === LoRa ===
 SoftwareSerial loraSerial(PIN_RX, PIN_TX);
 LoRa_E220 e220(&loraSerial, PIN_AUX, PIN_M0, PIN_M1);
@@ -50,8 +44,6 @@ void setup() {
   Serial.println("Initialisation du système de comptage...");
 
   pinMode(PIN_SAVE_BUTTON, INPUT_PULLUP);
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LOW);
 
   setupLoRa();
   loadCountsFromEEPROM();
@@ -75,7 +67,6 @@ void loop() {
   handleLoRaReception();
   handleAutoSave(now);
   handleButton(now);
-  updateLed(now); // ⚡ Gestion non bloquante de la LED
 }
 
 // --------------------------------------------------------
@@ -126,8 +117,7 @@ void handleLoRaReception() {
   if (msg == "SAVE") {
     Serial.println("Commande SAVE reçue via LoRa !");
     saveCountsToEEPROM();
-    turnLedOn(1000);  // LED 1s
-    e220.sendMessage("SAVED_OK");
+    e220.sendMessage("SAVED_OK");  // Confirmation envoyée au récepteur
   }
 }
 
@@ -137,7 +127,7 @@ void handleLoRaReception() {
 void handleAutoSave(unsigned long now) {
   if (now - lastSaveTime >= SAVE_INTERVAL) {
     saveCountsToEEPROM();
-    turnLedOn(1000);
+    e220.sendMessage("SAVED_OK"); // Notification du récepteur
     lastSaveTime = now;
   }
 }
@@ -156,9 +146,9 @@ void handleButton(unsigned long now) {
 
   // Appui long -> reset session
   if (buttonState == LOW && !buttonHeld && (now - buttonPressStart >= 8000)) {
-    Serial.println("🔄 Appui long → Réinitialisation du compteur de session !");
+    Serial.println("Appui long → Réinitialisation du compteur de session !");
     resetSessionCounter();
-    turnLedOn(4000); // LED 4s
+    e220.sendMessage("SAVED_OK");  // Confirmation pour le récepteur
     buttonHeld = true;
   }
 
@@ -166,9 +156,9 @@ void handleButton(unsigned long now) {
   if (lastButtonState == LOW && buttonState == HIGH) {
     unsigned long pressDuration = now - buttonPressStart;
     if (!buttonHeld && pressDuration < 8000) {
-      Serial.println("💾 Appui court → Sauvegarde en EEPROM");
+      Serial.println("Appui court → Sauvegarde en EEPROM");
       saveCountsToEEPROM();
-      turnLedOn(1000);
+      e220.sendMessage("SAVED_OK");  // Notification du récepteur
     }
   }
 
@@ -207,21 +197,4 @@ void resetSessionCounter() {
 void sendLoRaMessage(int total, int session) {
   String message = String(total) + "," + String(session);
   e220.sendMessage(message);
-}
-
-// --------------------------------------------------------
-// LED NON BLOQUANTE (millis())
-// --------------------------------------------------------
-void turnLedOn(unsigned long durationMs) {
-  ledOn = true;
-  ledDuration = durationMs;
-  ledStartTime = millis();
-  digitalWrite(PIN_LED, HIGH);
-}
-
-void updateLed(unsigned long now) {
-  if (ledOn && (now - ledStartTime >= ledDuration)) {
-    digitalWrite(PIN_LED, LOW);
-    ledOn = false;
-  }
 }
