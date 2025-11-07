@@ -14,7 +14,7 @@
 
 // === Capteur ===
 const int SENSOR_PIN = A0;
-const int DETECTION_THRESHOLD = 107;
+const int DETECTION_THRESHOLD = 124;
 const unsigned long MIN_DELAY_BETWEEN_BIKES = 800; // ms
 
 // === EEPROM ===
@@ -83,7 +83,6 @@ void setupLoRa() {
 // --------------------------------------------------------
 void handleDetection(unsigned long now) {
   int sensorValue = analogRead(SENSOR_PIN);
-
   if (sensorValue > DETECTION_THRESHOLD && (now - lastDetectionTime > MIN_DELAY_BETWEEN_BIKES)) {
     bikeCountSession++;
     bikeCountTotal++;
@@ -92,7 +91,9 @@ void handleDetection(unsigned long now) {
     Serial.print("Passage détecté → Total: ");
     Serial.print(bikeCountTotal);
     Serial.print(" | Session: ");
-    Serial.println(bikeCountSession);
+    Serial.print(bikeCountSession);
+    Serial.print("Sessor Value: ");
+    Serial.println(sensorValue);
 
     sendLoRaMessage(bikeCountTotal, bikeCountSession);
   }
