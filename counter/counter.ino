@@ -1,6 +1,7 @@
 #include <SoftwareSerial.h>
 #include <LoRa_E220.h>
 #include <EEPROM.h>
+#include <WDT.h>
 
 // === Broches LoRa E220 ===
 #define PIN_RX 2
@@ -31,6 +32,9 @@ bool lastButtonState = HIGH;
 unsigned long buttonPressStart = 0;
 bool buttonHeld = false;
 
+// === Watchdog ===
+const uint32_t WDT_TIMEOUT_MS = 2000;
+
 // === LoRa ===
 SoftwareSerial loraSerial(PIN_RX, PIN_TX);
 LoRa_E220 e220(&loraSerial, PIN_AUX, PIN_M0, PIN_M1);
@@ -44,6 +48,14 @@ void setup() {
   Serial.println("Initialisation du système de comptage...");
 
   pinMode(PIN_SAVE_BUTTON, INPUT_PULLUP);
+
+  if (WDT.begin(WDT_TIMEOUT_MS) == 0) {
+    Serial.println("⚠️ WDT non démarré");
+  } else {
+    Serial.print("WDT actif (~");
+    Serial.print(WDT.getTimeout());
+    Serial.println(" ms)");
+  }
 
   setupLoRa();
   loadCountsFromEEPROM();
@@ -63,6 +75,7 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
+  WDT.refresh();
   handleDetection(now);
   handleLoRaReception();
   handleAutoSave(now);
